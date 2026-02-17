@@ -1,0 +1,1324 @@
+/* ============================================
+   BIRTHDAY REMINDER - PHASE 2 STYLESHEET
+   (Supabase + Authentication)
+   ============================================ */
+
+/* Root Variables for Easy Customization */
+:root {
+    /* general palette */
+    --bg-color: #ffffff;
+    --card-bg: #ffffff;
+    --text-color: #333333;
+    --secondary-text: #666666;
+
+    /* button colors */
+    --button-bg: #ff6b6b;
+    --button-text: #ffffff;
+
+    /* accents */
+    --primary-color: #ff6b6b;
+    --secondary-color: #4ecdc4;
+
+    --border-color: #e0e0e0;
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    --google-blue: #1f2937;
+}
+
+/* Dark mode variables applied to body.dark */
+body.dark {
+    --bg-color: #0d1b2a;
+    --card-bg: #1a2a3a;
+    --text-color: #f0f4f8;
+    --secondary-text: #a0a8b0;
+
+    --button-bg: #ff7b7b;
+    --button-text: #000000;
+
+    --primary-color: #ff7b7b;
+    --secondary-color: #4dd9c4;
+
+    --border-color: #2d4563;
+}
+
+
+/* Smooth transitions */
+* { transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease; }
+
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+.header {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: var(--button-text);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0.5rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.header button {
+    padding: 0.6rem 1.2rem;
+}
+
+.header-content div {
+    display: flex;
+    gap: 0.8rem;
+}
+
+/* ============================================
+   CONTAINER & SECTIONS
+   ============================================ */
+.container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+}
+
+section {
+    margin-bottom: 2rem;
+}
+
+section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--primary-color);
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================
+   SUMMARY SECTION
+   ============================================ */
+.summary-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, var(--secondary-color), #ffe66d);
+    color: var(--button-text);
+    padding: 2.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.summary-card h3 {
+    color: var(--button-text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.summary-card p {
+    font-size: 2.5rem;
+    font-weight: 700;
+    word-break: break-word;
+    letter-spacing: -1px;
+}
+
+
+
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn-submit {
+    background: var(--button-bg);
+    color: var(--button-text);
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-submit:hover {
+    background: #ff5252;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.btn-submit:active {
+    transform: translateY(0);
+}
+
+.btn-delete {
+    background: #ff4757;
+    color: var(--button-text);
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+    background: #ff3838;
+}
+
+/* ============================================
+   FORM SECTION
+   ============================================ */
+.form-section {
+    background: var(--bg-color);
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    border: 1px solid var(--border-color);
+}
+
+.form-section h2 {
+    margin-top: 0;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#birthdayForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-section-optional {
+    background: rgba(0, 0, 0, 0.02);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.form-section-optional h3 {
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.import-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.import-description {
+    color: var(--text-color);
+    font-size: 0.95rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.import-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+}
+
+.file-types {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    background: var(--secondary-color);
+    color: var(--button-text);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+#importFileBtn {
+    padding: 1rem;
+    background: linear-gradient(135deg, var(--secondary-color), #4ecdc4);
+    color: var(--button-text);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
+}
+
+#importFileBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(78, 205, 196, 0.4);
+}
+
+.import-status {
+    padding: 1rem;
+    border-radius: 8px;
+    background: rgba(78, 205, 196, 0.1);
+    border: 1px solid var(--secondary-color);
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.import-status.success {
+    background: rgba(46, 204, 113, 0.1);
+    border-color: #2ecc71;
+    color: #27ae60;
+}
+
+.import-status.error {
+    background: rgba(231, 76, 60, 0.1);
+    border-color: #e74c3c;
+    color: #c0392b;
+}
+
+.import-hints {
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.import-hints p {
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.import-hints ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.import-hints li {
+    margin: 0.4rem 0;
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+.import-hints code {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    font-weight: 600;
+    margin-bottom: 0.7rem;
+    color: var(--text-color);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+
+.form-group input {
+    padding: 0.85rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+    background: var(--bg-color);
+}
+
+/* ============================================
+   LIST SECTION
+   ============================================ */
+.list-section {
+    margin-bottom: 2rem;
+}
+
+#birthdayList {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.empty-message {
+    text-align: center;
+    padding: 2rem;
+    color: #999;
+    font-size: 1.1rem;
+}
+
+/* ============================================
+   BIRTHDAY ITEM
+   ============================================ */
+.birthday-item {
+    background: var(--bg-color);
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    gap: 1rem;
+}
+
+.birthday-item:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.birthday-item.today {
+    border: 3px solid #ff6b6b;
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.08), rgba(78, 205, 196, 0.08));
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.2);
+}
+
+.thumbnail { 
+    width: 70px; 
+    height: 70px; 
+    object-fit: cover; 
+    border-radius: 10px; 
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.notes { 
+    font-size: 0.9rem; 
+    color: var(--text-color); 
+    margin-top: 0.6rem; 
+    max-height: 3.6rem; 
+    overflow: hidden; 
+    transition: all 0.25s ease;
+    line-height: 1.5;
+}
+
+.notes.expanded { 
+    max-height: 200px; 
+}
+
+.edit-area { 
+    display: flex; 
+    flex-direction: column;
+    gap: 0.7rem; 
+    align-items: stretch; 
+    margin-top: 1rem; 
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.edit-area input,
+.edit-area textarea {
+    padding: 0.7rem 0.9rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    font-family: inherit;
+}
+
+.edit-area input:focus,
+.edit-area textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.small-btn { 
+    padding: 0.5rem 1rem; 
+    font-size: 0.85rem; 
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.birthday-info {
+    flex: 1;
+}
+
+.birthday-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.3px;
+}
+
+.birthday-meta {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    opacity: 0.85;
+    line-height: 1.6;
+}
+
+.birthday-date {
+    font-size: 0.9rem;
+    color: var(--secondary-text);
+}
+
+.birthday-countdown {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin-top: 0.5rem;
+}
+
+.birthday-countdown.today {
+    color: #ff6b6b;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.birthday-badge {
+    display: inline-block;
+    background: #ff6b6b;
+    color: var(--button-text);
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+.birthday-actions {
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border-color);
+}
+
+.reminder-select {
+    padding: 0.6rem 0.8rem;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.reminder-select:hover {
+    border-color: var(--primary-color);
+}
+
+.reminder-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.1);
+}
+
+
+
+/* ============================================
+   AUTHENTICATION UI
+   ============================================ */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+}
+
+.auth-card {
+    background: var(--bg-color);
+    padding: 3rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.auth-card h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+.auth-card p {
+    font-size: 1rem;
+    color: var(--secondary-text);
+    margin-bottom: 2rem;
+}
+
+.btn-google {
+    background: var(--google-blue);
+    color: var(--button-text);
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-google:hover {
+    background: #111827;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(31, 41, 55, 0.3);
+}
+
+.btn-logout {
+    background: #ff4757;
+    color: var(--button-text);
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-logout:hover {
+    background: #ff3838;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* ============================================
+   APP CONTAINER & VISIBILITY
+   ============================================ */
+.app-container {
+    display: block;
+}
+
+.app-container.hidden {
+    display: none;
+}
+
+.auth-container.hidden {
+    display: none;
+}
+
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--button-text);
+    padding: 2rem 3rem;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    z-index: 9999;
+}
+
+.loading-indicator.hidden {
+    display: none;
+}
+
+/* ============================================
+   LIST CONTROLS (SEARCH & FILTER)
+   ============================================ */
+.list-controls {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    transition: border-color 0.3s ease, background-color 0.25s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: var(--bg-color);
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.6rem 1.2rem;
+    border: 2px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.filter-btn.active {
+    background: var(--primary-color);
+    color: var(--button-text);
+    border-color: var(--primary-color);
+}
+
+/* ============================================
+   COUNTDOWN STYLING
+   ============================================ */
+.countdown {
+    font-weight: 600;
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    transition: all 0.25s ease;
+}
+
+.countdown-today {
+    background: #ff6b6b;
+    color: var(--button-text);
+    animation: pulse 1s infinite;
+}
+
+.countdown-soon {
+    background: #ffa500;
+    color: var(--button-text);
+}
+
+.countdown-week {
+    background: #4ecdc4;
+    color: var(--button-text);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ============================================
+   NICKNAME STYLING
+   ============================================ */
+.nickname {
+    font-size: 0.85rem;
+    color: var(--secondary-color);
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+/* ============================================
+     PHASE 6: NEW UI (Progress bars, timeline, insights, toasts, confetti)
+     ============================================ */
+
+.birthday-actions { align-items: center; }
+
+.progress-bar {
+    width: 180px;
+    height: 10px;
+    background: var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-left: 1rem;
+}
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+    width: 0%;
+    transition: width 0.6s ease;
+}
+
+.timeline-section, .insights-section, .import-export-section {
+    margin-top: 2rem;
+}
+
+#upcomingTimeline { display: grid; gap: 0.75rem; }
+.timeline-item { display:flex; justify-content:space-between; padding:0.5rem; border-radius:6px; background: var(--card-bg); border:1px solid var(--border-color); }
+
+#insightsDashboard { display:flex; gap:1rem; flex-wrap:wrap; }
+.insight-card { background: var(--card-bg); padding:1rem; border-radius:8px; box-shadow:var(--shadow); min-width:150px; text-align:center; }
+.insight-card strong { font-size:1.5rem; color:var(--primary-color); }
+
+.import-export-actions { display:flex; gap:1rem; align-items:center; }
+.hint { color: var(--secondary-text); font-size:0.9rem; margin-top:0.5rem; }
+
+/* Toast notifications */
+#toastContainer { position: fixed; right: 1rem; bottom: 1rem; z-index:99999; display:flex; flex-direction:column; gap:0.5rem; }
+.toast { background: rgba(20,20,20,0.95); color: var(--button-text); padding:0.75rem 1rem; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.2); animation: slideIn 0.35s ease; }
+.toast.success { background: linear-gradient(90deg,#16a34a,#4ade80); color: var(--button-text); }
+.toast.error { background: linear-gradient(90deg,#ef4444,#f97316); color: var(--button-text); }
+/* undo toast button styling */
+.toast.undo .undo-btn {
+    background: transparent;
+    border: none;
+    color: var(--button-text);
+    font-weight: 600;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.toast.undo .undo-btn:hover {
+    opacity: 0.8;
+}
+
+@keyframes slideIn { from { transform: translateY(12px); opacity:0 } to { transform:translateY(0); opacity:1 } }
+
+/* Confetti (simple) */
+#confettiContainer { position: fixed; left:0; right:0; top:0; bottom:0; pointer-events:none; overflow:hidden; z-index:99998; }
+.confetti-piece { position:absolute; width:10px; height:14px; opacity:0.9; transform-origin:center; animation: confetti-fall 2.5s linear forwards; }
+@keyframes confetti-fall { to { transform: translateY(120vh) rotate(360deg); opacity:0.6 } }
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN (EXISTING)
+   ============================================ */
+@media (max-width: 768px) {
+    .header h1 {
+        font-size: 2rem;
+    }
+
+    #birthdayForm {
+        grid-template-columns: 1fr;
+    }
+
+    .birthday-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .birthday-info {
+        width: 100%;
+    }
+
+    .birthday-actions {
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    .summary-section {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-card {
+        padding: 2rem 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 0 1rem;
+    }
+
+    .header {
+        padding: 1.5rem 1rem;
+    }
+
+    .header h1 {
+        font-size: 1.5rem;
+    }
+
+    .form-section {
+        padding: 1.5rem 1rem;
+    }
+
+    .auth-card {
+        padding: 1.5rem 1rem;
+    }
+
+    .btn-google {
+        padding: 0.6rem 1.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+.hidden {
+    display: none !important;
+}
+/* ============================================
+   AVATARS & BADGES
+   ============================================ */
+.avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-weight: bold;
+    color: white;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    box-shadow: var(--shadow);
+}
+
+.milestone-badge {
+    display: inline-block;
+    font-size: 1rem;
+    margin-left: 0.3rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.25rem;
+    background: rgba(255, 215, 0, 0.2);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    font-weight: bold;
+}
+
+/* ============================================
+   CONTROLS SECTION
+   ============================================ */
+.controls-section {
+    background: var(--card-bg);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+}
+
+.search-section {
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 1rem;
+}
+
+.search-input::placeholder {
+    color: var(--secondary-text);
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+.controls-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.view-toggle,
+.sort-controls,
+.filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.view-btn,
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.view-btn:hover,
+.filter-btn:hover {
+    background: var(--primary-color);
+    color: var(--button-text);
+    border-color: var(--primary-color);
+}
+
+.view-btn.active,
+.filter-btn.active {
+    background: var(--primary-color);
+    color: var(--button-text);
+    border-color: var(--primary-color);
+    font-weight: bold;
+}
+
+.sort-select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* ============================================
+   BIRTHDAY LIST & CALENDAR
+   ============================================ */
+.display-section {
+    margin: 1rem 0;
+}
+
+.birthday-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.birthday-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: var(--shadow);
+    transition: all 0.2s ease;
+}
+
+.birthday-item:hover {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.birthday-item.today {
+    border: 2px solid var(--primary-color);
+    background: rgba(255, 107, 107, 0.05);
+}
+
+.birthday-card-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.birthday-card-header {
+    display: flex;
+    gap: 1rem;
+    flex: 1;
+}
+
+.birthday-info {
+    flex: 1;
+}
+
+.birthday-name {
+    font-size: 1.1rem;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.nickname {
+    font-size: 0.85rem;
+    color: var(--secondary-text);
+    font-weight: normal;
+}
+
+.birthday-date {
+    color: var(--secondary-text);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.birthday-meta {
+    color: var(--secondary-text);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+.countdown {
+    font-weight: bold;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    display: inline-block;
+}
+
+.countdown-today {
+    background: rgba(255, 107, 107, 0.2);
+    color: #c41e3a;
+}
+
+.countdown-soon {
+    background: rgba(255, 193, 7, 0.2);
+    color: #f57f17;
+}
+
+.countdown-week {
+    background: rgba(76, 175, 80, 0.2);
+    color: #2e7d32;
+}
+
+.birthday-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.small-btn {
+    padding: 0.5rem;
+    border: none;
+    background: var(--button-bg);
+    color: var(--button-text);
+    border-radius: 0.3rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.small-btn:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
+
+.edit-area {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.edit-area input,
+.edit-area textarea {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.3rem;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: inherit;
+}
+
+.edit-area input:focus,
+.edit-area textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* ============================================
+   CALENDAR STYLING
+   ============================================ */
+.birthday-calendar {
+    padding: 1rem;
+    background: var(--card-bg);
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.calendar-month-header {
+    text-align: center;
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.calendar-day-headers {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    font-weight: bold;
+    color: var(--secondary-text);
+}
+
+.calendar-day-header {
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0.25rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.5rem;
+}
+
+.calendar-cell {
+    aspect-ratio: 1;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    background: var(--bg-color);
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.calendar-cell:hover:not(.empty) {
+    background: rgba(255, 107, 107, 0.05);
+    border-color: var(--primary-color);
+}
+
+.calendar-cell.empty {
+    background: transparent;
+    border: none;
+}
+
+.calendar-cell.today {
+    border: 2px solid var(--primary-color);
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.calendar-cell.has-birthday {
+    background: rgba(76, 175, 80, 0.05);
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+.calendar-day-number {
+    font-weight: bold;
+    color: var(--text-color);
+    margin-bottom: 0.25rem;
+}
+
+.calendar-birthday-name {
+    font-size: 0.7rem;
+    color: var(--secondary-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.1rem 0.2rem;
+    background: rgba(255, 107, 107, 0.1);
+    border-radius: 0.15rem;
+    margin-bottom: 0.1rem;
+}
+
+/* ============================================
+   RESPONSIVE CALENDAR
+   ============================================ */
+@media (max-width: 768px) {
+    .calendar-grid {
+        gap: 0.3rem;
+    }
+
+    .calendar-cell {
+        min-height: 60px;
+        padding: 0.3rem;
+        font-size: 0.8rem;
+    }
+
+    .calendar-day-number {
+        font-size: 0.9rem;
+    }
+
+    .calendar-birthday-name {
+        font-size: 0.6rem;
+    }
+
+    .controls-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .view-toggle,
+    .sort-controls,
+    .filter-buttons {
+        width: 100%;
+    }
+
+    .view-btn,
+    .filter-btn {
+        flex: 1;
+    }
+
+    .sort-select {
+        width: 100%;
+    }
+}

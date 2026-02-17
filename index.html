@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Reminder </title>
+    <link rel="stylesheet" href="style.css?v=2.0">
+    <!-- Supabase Client Library via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- PDF.js for PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+</head>
+<body>
+    <!-- Authentication Section -->
+    <div id="authContainer" class="auth-container">
+        <div class="auth-card">
+            <h1>🎂 Birthday Reminder</h1>
+            <p>Sign in to manage your birthdays</p>
+            <button id="googleLoginBtn" class="btn-google">Sign in with Google</button>
+        </div>
+    </div>
+
+    <!-- Main App Section (Hidden until login) -->
+    <div id="appContainer" class="app-container hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>🎂 Birthday Reminder</h1>
+                <button id="logoutBtn" class="btn-logout">Logout</button>
+                <div>
+                    <button id="darkModeToggle" class="btn-logout">🌓</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Container -->
+        <div class="container">
+        <!-- Summary Section -->
+        <section class="summary-section">
+            <div class="summary-card">
+                <h3>Total Birthdays</h3>
+                <p id="totalBirthdays">0</p>
+            </div>
+            <div class="summary-card">
+                <h3>This Month</h3>
+                <p id="thisMonthCount">0</p>
+            </div>
+            <div class="summary-card">
+                <h3>Next 7 Days</h3>
+                <p id="next7Count">0</p>
+            </div>
+            <div class="summary-card">
+                <h3>Today</h3>
+                <p id="todayBirthdays">0</p>
+            </div>
+        </section>
+        <!-- Add Birthday Form -->
+        <section class="form-section">
+            <h2>➕ Add Birthday Manually</h2>
+            <form id="birthdayForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nameInput">Name <span class="required">*</span></label>
+                        <input 
+                            type="text" 
+                            id="nameInput" 
+                            placeholder="Enter name" 
+                            required
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="dateInput">Date of Birth <span class="required">*</span></label>
+                        <input 
+                            type="date" 
+                            id="dateInput" 
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div class="form-section-optional">
+                    <h3>Optional Details</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reminderSelect">Reminder:</label>
+                            <select id="reminderSelect">
+                                <option value="0">No reminder</option>
+                                <option value="1">1 day before</option>
+                                <option value="2">2 days before</option>
+                                <option value="7">7 days before</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="nicknameInput">Nickname:</label>
+                            <input type="text" id="nicknameInput" placeholder="e.g., Mom, Best Friend">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notesInput">Notes:</label>
+                        <textarea id="notesInput" rows="2" placeholder="Add optional notes..."></textarea>
+                    </div>
+
+                </div>
+
+                <button type="submit" class="btn-submit">Add Birthday</button>
+            </form>
+        </section>
+
+        <!-- Import From File Section -->
+        <section class="form-section">
+            <h2>📁 Import From File</h2>
+            <div class="import-section">
+                <p class="import-description">Upload a file to import multiple birthdays at once.</p>
+                <div class="import-controls">
+                    <div class="file-types">
+                        <span class="badge">PDF</span>
+                        <span class="badge">TXT</span>
+                    </div>
+                    <input 
+                        type="file" 
+                        id="importFileInput" 
+                        accept=".pdf,.txt" 
+                        style="display:none"
+                    >
+                    <button type="button" id="importFileBtn" class="btn-submit">Choose File</button>
+                </div>
+                <div id="importStatus" class="import-status" style="display:none;"></div>
+                <div class="import-hints">
+                    <p><strong>Supported formats:</strong></p>
+                    <ul>
+                        <li><strong>PDF:</strong> extract text and look for names + dates</li>
+                        <li><strong>TXT:</strong> any text, student list format or messy lines</li>
+                    </ul>
+                    <p class="hint">Only <strong>name</strong> and <strong>date_of_birth</strong> are extracted. Duplicates are skipped.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- View & Filter Controls -->
+        <section class="controls-section">
+            <div class="search-section">
+                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search by name...">
+            </div>
+            <div class="controls-row">
+                <div class="view-toggle">
+                    <button class="view-btn active" data-view="list">📋 List</button>
+                    <button class="view-btn" data-view="calendar">📅 Calendar</button>
+                </div>
+                <div class="sort-controls">
+                    <select id="sortSelect" class="sort-select">
+                        <option value="upcoming">Nearest</option>
+                        <option value="alphabetical">A-Z</option>
+                    </select>
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="today">Today</button>
+                    <button class="filter-btn" data-filter="upcoming">Next 7 Days</button>
+                    <button class="filter-btn" data-filter="thismonth">This Month</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Birthday Display Section -->
+        <section class="display-section">
+            <div id="birthdayList" class="birthday-list">
+                <p class="empty-message">No birthdays yet. Add one to get started!</p>
+            </div>
+            <div id="birthdayCalendar" class="birthday-calendar" style="display: none;">
+                <p class="empty-message">Calendar view coming soon</p>
+            </div>
+        </section>
+
+        <!-- Upcoming Timeline -->
+        <section class="timeline-section">
+            <h2>Upcoming (next 30 days)</h2>
+            <div id="upcomingTimeline">
+                <p class="empty-message">No upcoming birthdays in the next 30 days.</p>
+            </div>
+        </section>
+
+        <!-- Insights Dashboard -->
+        <section class="insights-section">
+            <h2>Insights</h2>
+            <div id="insightsDashboard">
+                <div class="insight-card">
+                    <strong id="thisMonthCount">0</strong>
+                    <div>Birthdays this month</div>
+                </div>
+                <div class="insight-card">
+                    <strong id="next30Count">0</strong>
+                    <div>Birthdays next 30 days</div>
+                </div>
+                <div class="insight-card">
+                    <strong id="commonMonth">—</strong>
+                    <div>Most common month</div>
+                </div>
+                <div class="insight-card">
+                    <strong id="avgAge">—</strong>
+                    <div>Average age</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Export / Import -->
+        <section class="import-export-section">
+            <h2>Export / Import</h2>
+            <div class="import-export-actions">
+                <button id="exportJsonBtn" class="btn-submit">Export JSON</button>
+                <button id="exportTxtBtn" class="btn-submit">Export TXT</button>
+            </div>
+            <p class="hint">Choose an export format to download your current birthdays.</p>
+        </section>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="loadingIndicator" class="loading-indicator hidden">Loading...</div>
+
+    <script src="supabase.js?v=2.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="script.js?v=2.0"></script>
+</body>
+</html>
