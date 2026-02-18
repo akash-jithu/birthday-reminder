@@ -10,7 +10,7 @@ class Birthday {
         this.nickname = optionalFields.nickname || '';
         this.imageUrl = optionalFields.imageUrl || null;
         this.notes = optionalFields.notes || '';
-        // Handle reminder preferences - can be array or will default to empty
+        // Handle reminder preferences (legacy relative reminders)
         if (Array.isArray(optionalFields.reminderPreferences)) {
             this.reminderPreferences = optionalFields.reminderPreferences.map(n => Number(n));
         } else if (optionalFields.reminderPreferences) {
@@ -18,6 +18,10 @@ class Birthday {
         } else {
             this.reminderPreferences = [];
         }
+        // New fields for absolute reminder & email flags
+        this.reminderDatetime = optionalFields.reminder_datetime || null; // ISO string or null
+        this.reminderSent = optionalFields.reminder_sent || false;
+        this.birthdayEmailSent = optionalFields.birthday_email_sent || false;
     }
 
     getNextOccurrence() {
@@ -118,6 +122,9 @@ const darkModeToggle = document.getElementById('darkModeToggle');
 const birthdayForm = document.getElementById('birthdayForm');
 const nameInput = document.getElementById('nameInput');
 const dateInput = document.getElementById('dateInput');
+// custom reminder inputs
+const reminderDateInput = document.getElementById('reminderDateInput');
+const reminderTimeInput = document.getElementById('reminderTimeInput');
 
 // Summary elements
 const totalBirthdays = document.getElementById('totalBirthdays');
@@ -247,9 +254,20 @@ function getMilestoneBadge(age) {
 }
 
 // Format date nicely
+data
 function formatDate(isoDate) {
     const [year, month, day] = isoDate.split('-');
     return `${day}-${month}-${year}`;
+}
+
+// Format an ISO datetime string into human-friendly text
+function formatDatetime(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    if (isNaN(d)) return '';
+    const datePart = d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    const timePart = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return `${datePart} at ${timePart}`;
 }
 
 async function initApp() {
@@ -265,7 +283,10 @@ async function initApp() {
                 nickname: b.nickname,
                 imageUrl: b.image_url,
                 notes: b.notes,
-                reminderPreferences: b.reminder_preferences
+                reminderPreferences: b.reminder_preferences,
+                reminder_datetime: b.reminder_datetime,
+                reminder_sent: b.reminder_sent,
+                birthday_email_sent: b.birthday_email_sent
             }
         ));
     } catch (err) {
@@ -425,6 +446,7 @@ function renderList() {
                         <strong class="birthday-name">${b.name} ${nickDisplay} ${milestoneHtml}</strong>
                         <div class="birthday-date">DOB: ${formatDate(b.dateOfBirth)}</div>
                         <div class="birthday-meta">Age: ${age} • <span class="countdown ${countdownClass}">${countdownText}</span></div>
+                        ${b.reminderDatetime ? `<div class="birthday-reminder">Reminder: ${formatDatetime(b.reminderDatetime)}</div>` : ''}
                     </div>
                 </div>
                 <div class="birthday-actions">
@@ -462,6 +484,16 @@ function renderList() {
                     <input type="date" class="edit-date" value="${b.dateOfBirth}" required>
                     <input type="text" class="edit-nickname" placeholder="Nickname (optional)" value="${escapeHtml(b.nickname || '')}">
                     <textarea class="edit-notes" placeholder="Notes (optional)" rows="2">${escapeHtml(b.notes || '')}</textarea>
+                    <div class="form-row" style="gap:0.5rem;">
+                        <div class="form-group">
+                            <label>Reminder Date:</label>
+                            <input type="date" class="edit-reminder-date" value="${b.reminderDatetime ? b.reminderDatetime.split('T')[0] : ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>Reminder Time:</label>
+                            <input type="time" class="edit-reminder-time" value="${b.reminderDatetime ? b.reminderDatetime.split('T')[1].substring(0,5) : ''}">
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="small-btn btn-save" style="flex:1;">Save</button>
                         <button class="small-btn btn-cancel" style="flex:1;">Cancel</button>
@@ -476,6 +508,8 @@ function renderList() {
                 const dateInput = editArea.querySelector('.edit-date');
                 const nicknameInput = editArea.querySelector('.edit-nickname');
                 const notesInput = editArea.querySelector('.edit-notes');
+                const reminderDateInput = editArea.querySelector('.edit-reminder-date');
+                const reminderTimeInput = editArea.querySelector('.edit-reminder-time');
 
                 if (!nameInput.value.trim() || !dateInput.value) {
                     showToast('Name and date are required', 'error');
@@ -488,6 +522,19 @@ function renderList() {
                     nickname: nicknameInput.value || null,
                     notes: notesInput.value || null
                 };
+                // handle reminder datetime
+                let reminderDatetime = null;
+                if (reminderDateInput.value) {
+                    const timeVal = reminderTimeInput.value || '00:00';
+                    reminderDatetime = `${reminderDateInput.value}T${timeVal}:00`;
+                }
+                updateObj.reminder_datetime = reminderDatetime;
+                if (!reminderDatetime) {
+                    // if reminder removed, reset sent flag
+                    updateObj.reminder_sent = false;
+                }
+                // if empty, will be cleaned by updateBirthday
+
 
                 const updated = await updateBirthday(b.id, updateObj);
                 if (updated) {
@@ -495,6 +542,9 @@ function renderList() {
                     b.dateOfBirth = updated.date_of_birth;
                     b.nickname = updated.nickname || '';
                     b.notes = updated.notes || '';
+                    b.reminderDatetime = updated.reminder_datetime || null;
+                    b.reminderSent = updated.reminder_sent || false;
+                    b.birthdayEmailSent = updated.birthday_email_sent || false;
                     showToast('Birthday updated!', 'success');
                     updateAllViews();
                 }
@@ -749,14 +799,19 @@ birthdayForm.onsubmit = async e => {
     const notes = document.getElementById('notesInput')?.value || '';
     const nickname = document.getElementById('nicknameInput')?.value || '';
     const reminderDays = Number(document.getElementById('reminderSelect')?.value || 0);
-
-    
+    const reminderDate = document.getElementById('reminderDateInput')?.value || '';
+    const reminderTime = document.getElementById('reminderTimeInput')?.value || '';
 
     // Build optional fields object
     const optionalFields = {};
     if (nickname) optionalFields.nickname = nickname;
     if (notes) optionalFields.notes = notes;
     if (reminderDays > 0) optionalFields.reminderPreferences = [reminderDays];
+    // custom reminder datetime
+    if (reminderDate) {
+        const timePart = reminderTime || '00:00';
+        optionalFields.reminder_datetime = `${reminderDate}T${timePart}:00`;
+    }
 
     // Insert with ONLY required fields + optional fields
     const result = await insertBirthday(name, dateOfBirth, currentUser.id, optionalFields);
@@ -766,7 +821,10 @@ birthdayForm.onsubmit = async e => {
                 nickname: result.nickname,
                 imageUrl: result.image_url,
                 notes: result.notes,
-                reminderPreferences: result.reminder_preferences
+                reminderPreferences: result.reminder_preferences,
+                reminder_datetime: result.reminder_datetime,
+                reminder_sent: result.reminder_sent,
+                birthday_email_sent: result.birthday_email_sent
             })
         );
         birthdayForm.reset();
@@ -1295,7 +1353,10 @@ async function bulkInsertBirthdays(items) {
                 nickname: b.nickname,
                 imageUrl: b.image_url,
                 notes: b.notes,
-                reminderPreferences: b.reminder_preferences
+                reminderPreferences: b.reminder_preferences,
+                reminder_datetime: b.reminder_datetime,
+                reminder_sent: b.reminder_sent,
+                birthday_email_sent: b.birthday_email_sent
             }
         ));
         updateAllViews();
@@ -1375,31 +1436,112 @@ document.getElementById('importFileInput')?.addEventListener('change', async (e)
    REMINDERS CHECK
 ============================================ */
 
-async function checkRemindersOnLoad() {
+// New, comprehensive reminder check that handles both custom reminders and
+// birthday email notifications. Called on load and once every minute.
+async function checkReminders() {
     if (!birthdayManager || birthdayManager.length === 0) return;
-
-    // ensure permission request already made
     requestNotificationPermission();
+    const now = new Date();
 
-    const todayList = birthdayManager.filter(b => b.isToday());
-    const reminderList = birthdayManager.filter(b => b.isReminderDueToday());
-    const allDue = new Set([...todayList, ...reminderList]);
-    if (allDue.size === 0) return;
-
-    allDue.forEach(b => {
-        const isToday = b.isToday();
-        const prefs = b.reminderPreferences.join(', ');
-        const msg = isToday
-            ? `${b.name}'s birthday is today 🎉`
-            : `${b.name}'s birthday is on ${b.getNextOccurrence().toLocaleDateString()}${prefs ? ` (reminders: ${prefs}d)` : ''}`;
-
+    // handle legacy relative reminders (preferences)
+    const relativeDue = birthdayManager.filter(b => b.isReminderDueToday());
+    relativeDue.forEach(b => {
+        const msg = `${b.name}'s birthday is on ${b.getNextOccurrence().toLocaleDateString()} (reminders: ${b.reminderPreferences.join(', ')}d)`;
         showToast('Reminder: ' + msg, 'success');
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
             sendBirthdayNotification(b.name, msg);
         }
-        if (isToday) spawnConfetti();
     });
+
+    for (const b of birthdayManager) {
+        // birthday email logic
+        if (b.isToday()) {
+            if (!b.birthdayEmailSent) {
+                await triggerBirthdayAlert(b);
+            }
+        } else if (b.birthdayEmailSent) {
+            // reset flag when day passes
+            b.birthdayEmailSent = false;
+            updateBirthday(b.id, { birthday_email_sent: false }).catch(() => {});
+        }
+
+        // custom reminder based on absolute datetime
+        if (b.reminderDatetime && !b.reminderSent) {
+            const rd = new Date(b.reminderDatetime);
+            if (now >= rd) {
+                await triggerCustomReminder(b, rd);
+            }
+        }
+    }
 }
+
+// helper invoked once when the app loads to kick off the periodic check
+let reminderInterval = null;
+
+async function checkRemindersOnLoad() {
+    await checkReminders();
+    // run every 60 seconds, avoid multiple intervals
+    if (!reminderInterval) {
+        reminderInterval = setInterval(checkReminders, 60000);
+    }
+}
+
+// Internal helpers
+async function triggerBirthdayAlert(b) {
+    const msg = `${b.name}'s birthday is today 🎉`;
+    showToast('Birthday: ' + msg, 'success');
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        sendBirthdayNotification(b.name, msg);
+    }
+    spawnConfetti();
+    // send email
+    if (currentUser && currentUser.email) {
+        try {
+            await sendEmail({
+                email: currentUser.email,
+                name: b.name,
+                type: 'Birthday',
+                date: formatDate(new Date().toISOString().split('T')[0])
+            });
+        } catch (e) {
+            console.warn('birthday email failed', e);
+        }
+    }
+    b.birthdayEmailSent = true;
+    updateBirthday(b.id, { birthday_email_sent: true }).catch(() => {});
+}
+
+async function triggerCustomReminder(b, rd) {
+    const msg = `Reminder for ${b.name} on ${formatDatetime(rd.toISOString())}`;
+    showToast('Reminder: ' + msg, 'success');
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        sendBirthdayNotification(b.name, msg);
+    }
+    if (currentUser && currentUser.email) {
+        try {
+            await sendEmail({
+                email: currentUser.email,
+                name: b.name,
+                type: 'Reminder',
+                date: formatDatetime(rd.toISOString())
+            });
+        } catch (e) {
+            console.warn('reminder email failed', e);
+        }
+    }
+    b.reminderSent = true;
+    updateBirthday(b.id, { reminder_sent: true }).catch(() => {});
+}
+
+// wrapper to call edge function
+async function sendEmail(payload) {
+    if (!currentUser) return;
+    const { error } = await supabaseClient.functions.invoke('send-reminder-email', {
+        body: payload
+    });
+    if (error) throw error;
+}
+
 
 /* ============================================
    PWA SERVICE WORKER REGISTRATION

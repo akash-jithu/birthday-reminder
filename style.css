@@ -1122,6 +1122,13 @@ section h2 {
     margin-top: 0.25rem;
 }
 
+.birthday-reminder {
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
 .countdown {
     font-weight: bold;
     padding: 0.2rem 0.5rem;
