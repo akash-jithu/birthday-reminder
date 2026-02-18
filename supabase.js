@@ -16,7 +16,14 @@ function getOAuthRedirectUrl() {
 
 const supabaseClient = supabase.createClient(
     SUPABASE_URL,
-    SUPABASE_ANON_KEY
+    SUPABASE_ANON_KEY,
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+        }
+    }
 );
 
 /* ============================================
@@ -44,6 +51,8 @@ async function signInWithGoogle() {
 }
 
 async function signOut() {
+    // Simply call Supabase signOut; session persistence is managed by the
+    // client configuration. Do not clear localStorage/sessionStorage here.
     const { error } = await supabaseClient.auth.signOut();
     if (error) console.error('Sign out error:', error);
 }

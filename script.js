@@ -814,14 +814,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.add('dark');
     }
 
+    // restore any existing Supabase session
+    try {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        if (error) console.error('Error fetching session on load:', error);
+        if (session && session.user) {
+            currentUser = session.user;
+            showApp();
+            if (!appInitialized) {
+                await initApp();
+            }
+        } else {
+            showAuth();
+        }
+    } catch (err) {
+        console.error('Session check failed:', err);
+        showAuth();
+    }
+
+    // listen for auth state changes and update UI
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (session && session.user) {
+            currentUser = session.user;
+            showApp();
+            if (!appInitialized) initApp();
+        } else {
+            currentUser = null;
+            appInitialized = false;
+            birthdayManager = null;
+            showAuth();
+        }
+    });
+
     handleOAuthErrorFromUrl();
     // request permission for notifications
     requestNotificationPermission();
-    try {
-        initAuth();
-    } catch (err) {
-        console.error('initAuth threw:', err);
-    }
 });
 
 /* ============================================
