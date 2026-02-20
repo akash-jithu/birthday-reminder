@@ -22,6 +22,19 @@
     --border-color: #e0e0e0;
     --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     --google-blue: #1f2937;
+    
+    /* status & accent colors */
+    --success-bg: #16a34a;
+    --success-light: #4ade80;
+    --error-bg: #ef4444;
+    --error-light: #f97316;
+    --warning-bg: #ffa500;
+    --info-bg: #4ecdc4;
+    
+    /* text colors for badges */
+    --countdown-today: #c41e3a;
+    --countdown-soon: #f57f17;
+    --countdown-week: #2e7d32;
 }
 
 /* Dark mode variables applied to body.dark */
@@ -38,6 +51,38 @@ body.dark {
     --secondary-color: #4dd9c4;
 
     --border-color: #2d4563;
+    
+    /* dark mode status colors */
+    --success-bg: #15803d;
+    --success-light: #86efac;
+    --error-bg: #dc2626;
+    --error-light: #fca5a5;
+    --warning-bg: #ca8a04;
+    --info-bg: #0d9488;
+}
+
+/* Light mode explicitly set (for auth page override) */
+body.light {
+    --bg-color: #ffffff;
+    --card-bg: #ffffff;
+    --text-color: #333333;
+    --secondary-text: #666666;
+
+    --button-bg: #ff6b6b;
+    --button-text: #ffffff;
+
+    --primary-color: #ff6b6b;
+    --secondary-color: #4ecdc4;
+
+    --border-color: #e0e0e0;
+    
+    /* light mode status colors */
+    --success-bg: #16a34a;
+    --success-light: #4ade80;
+    --error-bg: #ef4444;
+    --error-light: #f97316;
+    --warning-bg: #ffa500;
+    --info-bg: #4ecdc4;
 }
 
 
@@ -427,7 +472,7 @@ section h2 {
 }
 
 .birthday-item.today {
-    border: 3px solid #ff6b6b;
+    border: 3px solid var(--primary-color);
     background: linear-gradient(135deg, rgba(255, 107, 107, 0.08), rgba(78, 205, 196, 0.08));
     box-shadow: 0 6px 20px rgba(255, 107, 107, 0.2);
 }
@@ -756,7 +801,7 @@ section h2 {
 }
 
 .countdown-today {
-    background: #ff6b6b;
+    background: var(--primary-color);
     color: var(--button-text);
     animation: pulse 1s infinite;
 }
@@ -827,14 +872,15 @@ section h2 {
 
 /* Toast notifications */
 #toastContainer { position: fixed; right: 1rem; bottom: 1rem; z-index:99999; display:flex; flex-direction:column; gap:0.5rem; }
-.toast { background: rgba(20,20,20,0.95); color: var(--button-text); padding:0.75rem 1rem; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.2); animation: slideIn 0.35s ease; }
-.toast.success { background: linear-gradient(90deg,#16a34a,#4ade80); color: var(--button-text); }
-.toast.error { background: linear-gradient(90deg,#ef4444,#f97316); color: var(--button-text); }
-/* undo toast button styling */
+.toast { background: rgba(0,0,0,0.85); color: var(--button-text); padding:0.75rem 1rem; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.2); animation: slideIn 0.35s ease; }
+.toast.success { background: linear-gradient(90deg, var(--success-bg), var(--success-light)); color: var(--button-text); }
+.toast.error { background: linear-gradient(90deg, var(--error-bg), var(--error-light)); color: var(--button-text); }
+/* undo toast styling - uses adaptive colors for both themes */
+.toast.undo { background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border-color); }
 .toast.undo .undo-btn {
     background: transparent;
     border: none;
-    color: var(--button-text);
+    color: var(--primary-color);
     font-weight: 600;
     margin-left: 0.5rem;
     cursor: pointer;
@@ -948,9 +994,37 @@ section h2 {
     margin-left: 0.3rem;
     padding: 0.1rem 0.3rem;
     border-radius: 0.25rem;
-    background: rgba(255, 215, 0, 0.2);
-    border: 1px solid rgba(255, 215, 0, 0.4);
+    background: rgba(218, 165, 32, 0.2);
+    border: 1px solid rgba(218, 165, 32, 0.4);
     font-weight: bold;
+}
+
+/* ============================================
+   STAR FEATURE
+   ============================================ */
+.btn-star {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.btn-star:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.btn-star.starred {
+    opacity: 1;
+    color: var(--primary-color);
+}
+
+.birthday-item.starred {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.05), rgba(78, 205, 196, 0.03));
 }
 
 /* ============================================
@@ -1138,17 +1212,17 @@ section h2 {
 
 .countdown-today {
     background: rgba(255, 107, 107, 0.2);
-    color: #c41e3a;
+    color: var(--countdown-today);
 }
 
 .countdown-soon {
     background: rgba(255, 193, 7, 0.2);
-    color: #f57f17;
+    color: var(--countdown-soon);
 }
 
 .countdown-week {
     background: rgba(76, 175, 80, 0.2);
-    color: #2e7d32;
+    color: var(--countdown-week);
 }
 
 .birthday-actions {

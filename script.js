@@ -10,6 +10,7 @@ class Birthday {
         this.nickname = optionalFields.nickname || '';
         this.imageUrl = optionalFields.imageUrl || null;
         this.notes = optionalFields.notes || '';
+        this.isStarred = optionalFields.is_starred || false;
         // Handle reminder preferences (legacy relative reminders)
         if (Array.isArray(optionalFields.reminderPreferences)) {
             this.reminderPreferences = optionalFields.reminderPreferences.map(n => Number(n));
@@ -285,7 +286,8 @@ async function initApp() {
                 reminderPreferences: b.reminder_preferences,
                 reminder_datetime: b.reminder_datetime,
                 reminder_sent: b.reminder_sent,
-                birthday_email_sent: b.birthday_email_sent
+                birthday_email_sent: b.birthday_email_sent,
+                is_starred: b.is_starred
             }
         ));
     } catch (err) {
@@ -294,8 +296,11 @@ async function initApp() {
 
     // Initialize theme
     const savedTheme = localStorage.getItem('theme');
+    document.body.classList.remove('light');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.body.classList.add('dark');
+    } else {
+        document.body.classList.add('light');
     }
 
     try {
@@ -404,6 +409,8 @@ function renderList() {
             const [, m] = b.dateOfBirth.split('-');
             return Number(m) === currentMonth;
         });
+    } else if (currentFilter === 'starred') {
+        sorted = sorted.filter(b => b.isStarred);
     }
 
     if (sorted.length === 0) {
@@ -431,7 +438,7 @@ function renderList() {
         }
 
         const div = document.createElement('div');
-        div.className = 'birthday-item' + (b.isToday() ? ' today' : '');
+        div.className = 'birthday-item' + (b.isToday() ? ' today' : '') + (b.isStarred ? ' starred' : '');
         div.dataset.id = b.id;
 
         const nickDisplay = b.nickname ? `<span class="nickname">(${b.nickname})</span>` : '';
@@ -449,12 +456,25 @@ function renderList() {
                     </div>
                 </div>
                 <div class="birthday-actions">
+                    <button class="small-btn btn-star ${b.isStarred ? 'starred' : ''}" title="${b.isStarred ? 'Remove from favorites' : 'Add to favorites'}">⭐</button>
                     <button class="small-btn btn-share" title="Share">📤</button>
                     <button class="small-btn btn-edit" title="Edit">✏️</button>
                     <button class="small-btn btn-delete" title="Delete">🗑️</button>
                 </div>
             </div>
         `;
+
+        // Star button
+        div.querySelector('.btn-star').onclick = async () => {
+            b.isStarred = !b.isStarred;
+            const updated = await updateBirthday(b.id, { is_starred: b.isStarred });
+            if (updated) {
+                showToast(b.isStarred ? '⭐ Added to favorites!' : '⭐ Removed from favorites', 'success');
+                updateAllViews();
+            } else {
+                b.isStarred = !b.isStarred; // revert on failure
+            }
+        };
 
         // Share button
         div.querySelector('.btn-share').onclick = () => {
@@ -495,6 +515,7 @@ function renderList() {
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <button class="small-btn btn-save" style="flex:1;">Save</button>
+                        ${b.reminderDatetime ? '<button class="small-btn btn-clear-reminder" style="flex:1; background:var(--error-bg);">Clear Reminder</button>' : ''}
                         <button class="small-btn btn-cancel" style="flex:1;">Cancel</button>
                     </div>
                 </div>
@@ -502,6 +523,25 @@ function renderList() {
             div.appendChild(editArea);
 
             editArea.querySelector('.btn-cancel').onclick = () => { editArea.remove(); };
+            
+            // Clear reminder button handler
+            const clearBtn = editArea.querySelector('.btn-clear-reminder');
+            if (clearBtn) {
+                clearBtn.onclick = async () => {
+                    const updateObj = {
+                        reminder_datetime: null,
+                        reminder_sent: false
+                    };
+                    const updated = await updateBirthday(b.id, updateObj);
+                    if (updated) {
+                        b.reminderDatetime = null;
+                        b.reminderSent = false;
+                        showToast('Reminder cleared!', 'success');
+                        updateAllViews();
+                    }
+                };
+            }
+            
             editArea.querySelector('.btn-save').onclick = async () => {
                 const nameInput = editArea.querySelector('.edit-name');
                 const dateInput = editArea.querySelector('.edit-date');
@@ -528,8 +568,8 @@ function renderList() {
                     reminderDatetime = `${reminderDateInput.value}T${timeVal}:00`;
                 }
                 updateObj.reminder_datetime = reminderDatetime;
+                // Always reset reminder_sent when reminder is cleared or when entire reminder is being updated
                 if (!reminderDatetime) {
-                    // if reminder removed, reset sent flag
                     updateObj.reminder_sent = false;
                 }
                 // if empty, will be cleaned by updateBirthday
@@ -544,6 +584,7 @@ function renderList() {
                     b.reminderDatetime = updated.reminder_datetime || null;
                     b.reminderSent = updated.reminder_sent || false;
                     b.birthdayEmailSent = updated.birthday_email_sent || false;
+                    b.isStarred = updated.is_starred || false;
                     showToast('Birthday updated!', 'success');
                     updateAllViews();
                 }
@@ -806,10 +847,13 @@ birthdayForm.onsubmit = async e => {
     if (nickname) optionalFields.nickname = nickname;
     if (notes) optionalFields.notes = notes;
     if (reminderDays > 0) optionalFields.reminderPreferences = [reminderDays];
-    // custom reminder datetime
+    // custom reminder datetime - ONLY add if date is provided
     if (reminderDate) {
         const timePart = reminderTime || '00:00';
         optionalFields.reminder_datetime = `${reminderDate}T${timePart}:00`;
+    } else {
+        // Explicitly set to null for new entries with no reminder
+        optionalFields.reminder_datetime = null;
     }
 
     // Insert with ONLY required fields + optional fields
@@ -823,7 +867,8 @@ birthdayForm.onsubmit = async e => {
                 reminderPreferences: result.reminder_preferences,
                 reminder_datetime: result.reminder_datetime,
                 reminder_sent: result.reminder_sent,
-                birthday_email_sent: result.birthday_email_sent
+                birthday_email_sent: result.birthday_email_sent,
+                is_starred: result.is_starred || false
             })
         );
         birthdayForm.reset();
@@ -865,40 +910,64 @@ function handleOAuthErrorFromUrl() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // restore theme immediately (so auth screen respects it)
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.body.classList.add('dark');
-    }
-
-    // restore any existing Supabase session
     try {
+        // Fetch session once and reuse
         const { data: { session }, error } = await supabaseClient.auth.getSession();
         if (error) console.error('Error fetching session on load:', error);
-        if (session && session.user) {
+
+        // Setup theme based on session state
+        if (!session) {
+            // Login page - force light mode without modifying stored theme
+            document.body.classList.remove('dark');
+            document.body.classList.add('light');
+            showAuth();
+        } else {
+            // App page - restore saved theme
+            const savedTheme = localStorage.getItem('theme');
+            document.body.classList.remove('light');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+            } else {
+                document.body.classList.add('light');
+            }
+            
+            // User is already logged in
             currentUser = session.user;
             showApp();
             if (!appInitialized) {
                 await initApp();
             }
-        } else {
-            showAuth();
         }
     } catch (err) {
         console.error('Session check failed:', err);
+        // Fallback to login page
+        document.body.classList.remove('dark');
+        document.body.classList.add('light');
         showAuth();
     }
 
-    // listen for auth state changes and update UI
+    // Listen for auth state changes and update UI
+    // This handles OAuth redirect and manual logouts
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (session && session.user) {
+            // User logged in - apply saved theme
             currentUser = session.user;
+            const savedTheme = localStorage.getItem('theme');
+            document.body.classList.remove('light');
+            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.body.classList.add('dark');
+            } else {
+                document.body.classList.add('light');
+            }
             showApp();
             if (!appInitialized) initApp();
         } else {
+            // User logged out - back to login page with light mode
             currentUser = null;
             appInitialized = false;
             birthdayManager = null;
+            document.body.classList.remove('dark');
+            document.body.classList.add('light');
             showAuth();
         }
     });
@@ -1355,7 +1424,8 @@ async function bulkInsertBirthdays(items) {
                 reminderPreferences: b.reminder_preferences,
                 reminder_datetime: b.reminder_datetime,
                 reminder_sent: b.reminder_sent,
-                birthday_email_sent: b.birthday_email_sent
+                birthday_email_sent: b.birthday_email_sent,
+                is_starred: b.is_starred || false
             }
         ));
         updateAllViews();
@@ -1409,7 +1479,11 @@ document.getElementById('importFileInput')?.addEventListener('change', async (e)
                                 nickname: res.nickname,
                                 imageUrl: res.image_url,
                                 notes: res.notes,
-                                reminderPreferences: res.reminder_preferences
+                                reminderPreferences: res.reminder_preferences,
+                                reminder_datetime: res.reminder_datetime,
+                                reminder_sent: res.reminder_sent,
+                                birthday_email_sent: res.birthday_email_sent,
+                                is_starred: res.is_starred || false
                             })
                         );
                         existing.add(key);
@@ -1437,6 +1511,7 @@ document.getElementById('importFileInput')?.addEventListener('change', async (e)
 
 // New, comprehensive reminder check that handles both custom reminders and
 // birthday email notifications. Called on load and once every minute.
+// SAFETY: Handles null fields, missing emails, duplicate prevention, proper date comparison
 async function checkReminders() {
     if (!birthdayManager || birthdayManager.length === 0) return;
     requestNotificationPermission();
@@ -1453,23 +1528,29 @@ async function checkReminders() {
     });
 
     for (const b of birthdayManager) {
-        // birthday email logic
-        if (b.isToday()) {
-            if (!b.birthdayEmailSent) {
-                await triggerBirthdayAlert(b);
+        try {
+            // birthday email logic - only if email exists
+            if (b.isToday()) {
+                if (!b.birthdayEmailSent && currentUser && currentUser.email) {
+                    await triggerBirthdayAlert(b);
+                }
+            } else if (b.birthdayEmailSent) {
+                // reset flag when day passes
+                b.birthdayEmailSent = false;
+                updateBirthday(b.id, { birthday_email_sent: false }).catch(() => {});
             }
-        } else if (b.birthdayEmailSent) {
-            // reset flag when day passes
-            b.birthdayEmailSent = false;
-            updateBirthday(b.id, { birthday_email_sent: false }).catch(() => {});
-        }
 
-        // custom reminder based on absolute datetime
-        if (b.reminderDatetime && !b.reminderSent) {
-            const rd = new Date(b.reminderDatetime);
-            if (now >= rd) {
-                await triggerCustomReminder(b, rd);
+            // custom reminder based on absolute datetime - SAFETY: check null & valid date
+            if (b.reminderDatetime && !b.reminderSent) {
+                const rd = new Date(b.reminderDatetime);
+                // Validate date is parseable
+                if (!isNaN(rd.getTime()) && now >= rd) {
+                    await triggerCustomReminder(b, rd);
+                }
             }
+        } catch (e) {
+            console.error(`Error checking reminder for ${b.name}:`, e);
+            // Continue checking other birthdays on error
         }
     }
 }

@@ -78,30 +78,21 @@ async function getCurrentUser() {
 ============================================ */
 
 async function fetchUserBirthdays(userId) {
-    console.log('📥 fetchUserBirthdays() called for userId:', userId);
     const { data, error } = await supabaseClient
         .from('birthdays')
         .select('*')
         .eq('user_id', userId);
 
     if (error) {
-        console.error('❌ fetchUserBirthdays ERROR:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
+        console.error('Error fetching birthdays:', error.message);
         return [];
     }
-    console.log('✅ fetchUserBirthdays SUCCESS:', data?.length, 'records');
     return data;
 }
 
 // Insert birthday with ONLY required fields: name, date_of_birth
 // All other fields are optional
 async function insertBirthday(name, dateOfBirth, userId, optionalFields = {}) {
-    console.log('📤 insertBirthday() called:', { name, dateOfBirth, userId, optionalFields });
-    
     const payload = {
         user_id: userId,
         name: name.trim(),
@@ -116,29 +107,29 @@ async function insertBirthday(name, dateOfBirth, userId, optionalFields = {}) {
         .single();
 
     if (error) {
-        console.error('❌ insertBirthday ERROR:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
+        console.error('Error inserting birthday:', error.message);
         showToast('Failed to add birthday: ' + (error.message || 'Unknown error'), 'error');
         return null;
     }
-    console.log('✅ insertBirthday SUCCESS:', data);
     return data;
 }
 
 // Update birthday with ALL editable fields including date_of_birth
 async function updateBirthday(id, updates = {}) {
-    console.log('🔁 updateBirthday() called:', { id, updates });
-    
-    // Clean up updates object - only include non-empty values
+    // Clean up updates object:
+    // - include explicit nulls (to clear columns)
+    // - convert empty strings to null
+    // - include falsy boolean/number values (e.g., false, 0)
     const cleanUpdates = {};
     Object.entries(updates).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-            cleanUpdates[key] = value;
+        if (value === undefined) return; // skip undefined entries
+        if (value === '') {
+            // treat empty string as explicit NULL
+            cleanUpdates[key] = null;
+            return;
         }
+        // include null, booleans, numbers, non-empty strings, objects
+        cleanUpdates[key] = value;
     });
 
     const { data, error } = await supabaseClient
@@ -149,37 +140,24 @@ async function updateBirthday(id, updates = {}) {
         .single();
 
     if (error) {
-        console.error('❌ updateBirthday ERROR:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
+        console.error('Error updating birthday:', error.message);
         showToast('Failed to update birthday: ' + (error.message || 'Unknown error'), 'error');
         return null;
     }
-    console.log('✅ updateBirthday SUCCESS:', data);
     return data;
 }
 
 async function removeBirthday(id) {
-    console.log('🗑️ removeBirthday() called for id:', id);
     const { error } = await supabaseClient
         .from('birthdays')
         .delete()
         .eq('id', id);
 
     if (error) {
-        console.error('❌ removeBirthday ERROR:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
+        console.error('Error deleting birthday:', error.message);
         showToast('Failed to delete birthday: ' + (error.message || 'Unknown error'), 'error');
         return false;
     }
-    console.log('✅ removeBirthday SUCCESS');
     return true;
 }
 
