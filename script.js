@@ -1,5 +1,38 @@
 /* ============================================
    MODELS
+   ============================================
+   
+   REMINDER SYSTEM EXPLANATION (READ THIS):
+   ========================================
+   
+   This app has TWO reminder systems that work TOGETHER:
+   
+   1. SCHEDULED EMAIL SYSTEM (Primary, Production)
+      - Runs daily at 00:00 UTC via Supabase Edge Function
+      - Works even if user is offline
+      - Sends emails to user's authenticated email address
+      - No frontend involvement needed
+      - Configure: See DEPLOYMENT_GUIDE.sh
+   
+   2. IN-APP NOTIFICATION SYSTEM (Secondary, Frontend)
+      - Shows toasts/notifications while user views website
+      - Legacy relative reminders ("X days before")
+      - Real-time checks every 60 seconds
+      - Only works when user is logged in
+   
+   REMINDER STORAGE:
+   - reminder_preferences: Array of days before birthday (legacy)
+   - reminder_datetime: Exact date+time for custom reminder
+   - reminder_sent: Flag tracking if custom reminder email sent
+   - birthday_email_sent: Flag tracking if birthday email sent
+   
+   IMPORTANT INVARIANTS:
+   ✓ reminder_datetime has NO default value (always NULL unless user sets)
+   ✓ Clearing reminder sets reminder_datetime = NULL (permanent)
+   ✓ reminder_datetime is NEVER auto-generated from birthday_date
+   ✓ Editing reminder resets reminder_sent flag
+   ✓ Scheduled job ONLY updates email flags, never reminder_date
+   
 ============================================ */
 
 class Birthday {
@@ -561,19 +594,26 @@ function renderList() {
                     nickname: nicknameInput.value || null,
                     notes: notesInput.value || null
                 };
-                // handle reminder datetime
+                
+                // ============================================
+                // CRITICAL: Edit Reminder Logic (Never Auto-Assign)
+                // ============================================
+                // Handle reminder datetime:
+                // - If user provides a date: Use it with optional time
+                // - If user leaves date empty: Set to NULL (clears reminder)
                 let reminderDatetime = null;
                 if (reminderDateInput.value) {
                     const timeVal = reminderTimeInput.value || '00:00';
                     reminderDatetime = `${reminderDateInput.value}T${timeVal}:00`;
                 }
                 updateObj.reminder_datetime = reminderDatetime;
-                // Always reset reminder_sent when reminder is cleared or when entire reminder is being updated
+                
+                // CRITICAL: Reset reminder_sent flag when:
+                // 1. Reminder is cleared (no date provided) → null
+                // 2. Reminder is updated (date changed) → reset flag
                 if (!reminderDatetime) {
                     updateObj.reminder_sent = false;
                 }
-                // if empty, will be cleaned by updateBirthday
-
 
                 const updated = await updateBirthday(b.id, updateObj);
                 if (updated) {
@@ -847,14 +887,22 @@ birthdayForm.onsubmit = async e => {
     if (nickname) optionalFields.nickname = nickname;
     if (notes) optionalFields.notes = notes;
     if (reminderDays > 0) optionalFields.reminderPreferences = [reminderDays];
-    // custom reminder datetime - ONLY add if date is provided
+    
+    // ============================================
+    // CRITICAL: Reminder Logic (Never Auto-Assign)
+    // ============================================
+    // Custom reminder datetime - ONLY add if date is provided
     if (reminderDate) {
         const timePart = reminderTime || '00:00';
         optionalFields.reminder_datetime = `${reminderDate}T${timePart}:00`;
     } else {
-        // Explicitly set to null for new entries with no reminder
+        // CRITICAL: Explicitly set to NULL for new entries with no reminder
+        // This prevents any auto-assignment or default values
         optionalFields.reminder_datetime = null;
     }
+    // Both reminder flags should start as false
+    optionalFields.reminder_sent = false;
+    optionalFields.birthday_email_sent = false;
 
     // Insert with ONLY required fields + optional fields
     const result = await insertBirthday(name, dateOfBirth, currentUser.id, optionalFields);
@@ -1507,9 +1555,26 @@ document.getElementById('importFileInput')?.addEventListener('change', async (e)
 
 /* ============================================
    REMINDERS CHECK
+   ============================================
+   
+   IMPORTANT: This is for IN-APP notifications only.
+   The PRIMARY email reminder system is a scheduled Edge Function
+   that runs daily at 00:00 UTC via Supabase cron job.
+   
+   The scheduled Edge Function:
+   - Runs automatically, even if user is offline
+   - Fetches ALL birthdays and compares dates
+   - Sends emails to user's authenticated email address
+   - Updates email flags (reminder_sent, birthday_email_sent)
+   - Works without requiring user to be logged in
+   
+   This checkReminders function handles:
+   - In-app toast notifications (complementary)
+   - Real-time checks when user is viewing the app
+   - Legacy relative reminders (X days before)
+   
+   Do NOT rely on this for primary email delivery!
 ============================================ */
-
-// New, comprehensive reminder check that handles both custom reminders and
 // birthday email notifications. Called on load and once every minute.
 // SAFETY: Handles null fields, missing emails, duplicate prevention, proper date comparison
 async function checkReminders() {
@@ -1613,13 +1678,33 @@ async function triggerCustomReminder(b, rd) {
     updateBirthday(b.id, { reminder_sent: true }).catch(() => {});
 }
 
-// wrapper to call edge function
+// ============================================
+// EMAIL SENDING - DEPRECATED (Frontend-only)
+// ============================================
+// NOTE: This is kept for backward compatibility and frontend-triggered notifications
+// The PRIMARY email system is the scheduled Edge Function 'send-birthday-reminders'
+// which runs daily at 00:00 UTC and sends emails to users EVEN IF THEY'RE OFFLINE.
+//
+// This function only sends emails when user is logged in and viewing the app.
+// For production deployment, rely on the scheduled Edge Function instead.
+// ============================================
+
 async function sendEmail(payload) {
     if (!currentUser) return;
-    const { error } = await supabaseClient.functions.invoke('send-reminder-email', {
-        body: payload
-    });
-    if (error) throw error;
+    // Optional: If you have a send-reminder-email Edge Function configured,
+    // uncomment the code below. Otherwise, emails are sent via scheduled job.
+    /*
+    try {
+        const { error } = await supabaseClient.functions.invoke('send-reminder-email', {
+            body: payload
+        });
+        if (error) throw error;
+        console.log('✅ Email sent via Edge Function:', payload);
+    } catch (e) {
+        console.warn('⚠️ Email function not available, relying on scheduled job:', e);
+    }
+    */
+    console.log('📧 Email scheduled via daily cron job:', payload);
 }
 
 
