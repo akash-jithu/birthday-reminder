@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.18.0";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
-const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
+const adminEmail = Deno.env.get("ADMIN_EMAIL") || "";
 
 interface Birthday {
   id: string;
@@ -30,6 +30,12 @@ function getTodayISO(): string {
   return today.toISOString().split("T")[0];
 }
 
+function getTomorrowISO(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow.toISOString().split("T")[0];
+}
+
 // Helper: Safely evaluate if a date falls on today (Leap year safe)
 function checkIsEventToday(dateString: string, todayISO: string): boolean {
   if (!dateString) return false;
@@ -43,9 +49,14 @@ function checkIsEventToday(dateString: string, todayISO: string): boolean {
          targetDate.getDate() === todayDate.getDate();
 }
 
-// Helper: Send email via Resend with robust retries and error logging
+// Helper: Validate email format (basic check)
+function isValidEmail(email: string): boolean {
+  return typeof email === "string" && email.includes("@") && email.includes(".");
+}
+
+// Helper: Send email via Resend in Test Mode with robust retries and error logging
 async function sendEmailViaResend(
-  recipientEmail: string,
+  intendedRecipient: string,
   subject: string,
   htmlContent: string
 ): Promise<boolean> {
@@ -54,17 +65,40 @@ async function sendEmailViaResend(
     return false;
   }
 
-  // Use raw string if it's the free testing tier domain, else format nicely
-  const fromAddress = resendFromEmail === "onboarding@resend.dev"
-    ? "onboarding@resend.dev"
-    : `Birthday Reminder <${resendFromEmail}>`;
+  if (!adminEmail || !isValidEmail(adminEmail)) {
+    console.error("❌ ADMIN_EMAIL environment variable is missing or invalid. Cannot send email in test mode.");
+    return false;
+  }
+
+  // 1. FORCE TEST MODE SENDER: Resend's required default sender for unverified domains
+  const fromAddress = "Birthday Reminder <onboarding@resend.dev>";
+  
+  // 2. FIX RECIPIENT EMAIL RESTRICTION: Free tiers ONLY allow delivery to the verified account owner email
+  let actualRecipient = intendedRecipient;
+  if (!intendedRecipient || !isValidEmail(intendedRecipient)) {
+    console.error(`❌ Null/Invalid intended recipient detected: '${intendedRecipient}'. Overriding to ADMIN_EMAIL.`);
+    actualRecipient = adminEmail;
+  } else if (intendedRecipient.toLowerCase() !== adminEmail.toLowerCase()) {
+    console.warn(`⚠️ TEST MODE RESTRICTION: Cannot dynamically send to '${intendedRecipient}'. Overriding to verified ADMIN_EMAIL: '${adminEmail}'.`);
+    actualRecipient = adminEmail;
+  }
+
+  // 5. ADD DEBUG LOGGING
+  console.log(`\n--- PREPARING TO SEND EMAIL ---`);
+  console.log(`Original Target:      ${intendedRecipient || 'N/A'}`);
+  console.log(`Sender (Test Mode):   ${fromAddress}`);
+  console.log(`Recipient (Enforced): ${actualRecipient}`);
+  console.log(`Subject:              ${subject}`);
+  console.log(`-------------------------------\n`);
 
   let lastError = null;
-  const maxRetries = 2; // 3 total attempts
+  const maxRetries = 2; // Up to 2 retries (3 total attempts)
 
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
-      console.log(`✉️ Attempt ${attempt}/${maxRetries + 1} to send email to ${recipientEmail} from ${fromAddress}`);
+      if (attempt > 1) {
+        console.log(`✉️ Retry Attempt ${attempt}/${maxRetries + 1} to send email...`);
+      }
       
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -74,7 +108,7 @@ async function sendEmailViaResend(
         },
         body: JSON.stringify({
           from: fromAddress,
-          to: recipientEmail,
+          to: actualRecipient, // Dispatching to the verified override address
           subject: subject,
           html: htmlContent,
         }),
@@ -82,29 +116,30 @@ async function sendEmailViaResend(
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`✅ Email sent successfully to ${recipientEmail} (Resend ID: ${data.id || 'unknown'})`);
+        console.log(`✅ Email sent successfully to ${actualRecipient}`);
+        console.log(`Full Response: ${JSON.stringify(data)}`);
         return true;
       }
 
       // Log full failure API response deeply
       const errorText = await response.text();
       lastError = errorText;
-      console.error(`❌ Resend API Error on attempt ${attempt} for ${recipientEmail}: Status ${response.status} - ${errorText}`);
+      console.error(`❌ Resend API Error on attempt ${attempt} for ${actualRecipient}: Status ${response.status} - ${errorText}`);
 
-      // Short delay before retry for rate limit/timeout buffers
+      // Small delay loop (800ms) buffering against rate limits/throttles
       if (attempt <= maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Fetch/Network Exception on attempt ${attempt} for ${recipientEmail}:`, error);
+      console.error(`❌ Fetch/Network Exception on attempt ${attempt} for ${actualRecipient}:`, error);
       if (attempt <= maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
   }
 
-  console.error(`🚨 Final Failure: Exhausted all retries. Could not send email to ${recipientEmail}. Last Error: ${lastError}`);
+  console.error(`🚨 Final Failure: Exhausted all retries. Could not send email to ${actualRecipient}. Last Error: ${lastError}`);
   return false;
 }
 
@@ -216,6 +251,7 @@ async function processBirthdayReminders() {
     });
 
     const todayISO = getTodayISO();
+    const tomorrowISO = getTomorrowISO();
     let emailsSent = 0;
     const updateQueue: Array<{
       id: string;
@@ -241,10 +277,24 @@ async function processBirthdayReminders() {
           
           emailTasks.push(async () => {
             const htmlContent = generateBirthdayEmailHTML(birthday.name);
-            const emailSent = await sendEmailViaResend(userEmail, "🎉 Birthday Reminder", htmlContent);
+            const emailSent = await sendEmailViaResend(userEmail, "🎉 Happy Birthday Reminder!", htmlContent);
             if (emailSent) {
               emailsSent++;
               updateQueue.push({ id: birthday.id, birthday_email_sent: true });
+            }
+          });
+        }
+
+        // Check if birthday occurs TOMORROW (1-day reminder, leap-year safe)
+        if (checkIsEventToday(birthday.date_of_birth, tomorrowISO) && !birthday.reminder_sent) {
+          console.log(`🔔 Tomorrow is a birthday: ${birthday.name}`);
+          
+          emailTasks.push(async () => {
+            const htmlContent = generateReminderEmailHTML(birthday.name, tomorrowISO);
+            const emailSent = await sendEmailViaResend(userEmail, `🔔 Reminder: ${birthday.name}'s Birthday is Tomorrow!`, htmlContent);
+            if (emailSent) {
+              emailsSent++;
+              updateQueue.push({ id: birthday.id, reminder_sent: true });
             }
           });
         }
@@ -325,4 +375,10 @@ serve(async (req: any) => {
       headers: { "Content-Type": "application/json" },
     }
   );
+});
+
+// Enable fully automatic native scheduling in Supabase Edge Functions
+Deno.cron("Automatic Daily Birthday Reminders", "0 0 * * *", async () => {
+  console.log("⏰ CRON TRIGGERED: Running automatic daily birthday reminders");
+  await processBirthdayReminders();
 });
