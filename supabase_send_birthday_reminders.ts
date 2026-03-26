@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.18.0";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
+const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "onboarding@resend.dev";
 
 interface Birthday {
   id: string;
@@ -29,13 +30,20 @@ function getTodayISO(): string {
   return today.toISOString().split("T")[0];
 }
 
-// Helper: Extract month-day from YYYY-MM-DD date
-function getMonthDay(isoDate: string): string {
-  if (!isoDate || isoDate.length < 5) return "";
-  return isoDate.substring(5); // Returns MM-DD
+// Helper: Safely evaluate if a date falls on today (Leap year safe)
+function checkIsEventToday(dateString: string, todayISO: string): boolean {
+  if (!dateString) return false;
+  const [y, m, d] = dateString.split("T")[0].split("-");
+  const todayDate = new Date(todayISO);
+  
+  // Safe JS interpretation (evaluates Feb 29 -> Mar 1 on non-leap years appropriately)
+  const targetDate = new Date(todayDate.getFullYear(), Number(m) - 1, Number(d));
+  
+  return targetDate.getMonth() === todayDate.getMonth() && 
+         targetDate.getDate() === todayDate.getDate();
 }
 
-// Helper: Send email via Resend
+// Helper: Send email via Resend with robust retries and error logging
 async function sendEmailViaResend(
   recipientEmail: string,
   subject: string,
@@ -46,35 +54,58 @@ async function sendEmailViaResend(
     return false;
   }
 
-  try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "Birthday Reminder <noreply@birthdays.app>",
-        to: recipientEmail,
-        subject: subject,
-        html: htmlContent,
-      }),
-    });
+  // Use raw string if it's the free testing tier domain, else format nicely
+  const fromAddress = resendFromEmail === "onboarding@resend.dev"
+    ? "onboarding@resend.dev"
+    : `Birthday Reminder <${resendFromEmail}>`;
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error(
-        `❌ Failed to send email via Resend: ${response.status} - ${error}`
-      );
-      return false;
+  let lastError = null;
+  const maxRetries = 2; // 3 total attempts
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      console.log(`✉️ Attempt ${attempt}/${maxRetries + 1} to send email to ${recipientEmail} from ${fromAddress}`);
+      
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: recipientEmail,
+          subject: subject,
+          html: htmlContent,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Email sent successfully to ${recipientEmail} (Resend ID: ${data.id || 'unknown'})`);
+        return true;
+      }
+
+      // Log full failure API response deeply
+      const errorText = await response.text();
+      lastError = errorText;
+      console.error(`❌ Resend API Error on attempt ${attempt} for ${recipientEmail}: Status ${response.status} - ${errorText}`);
+
+      // Short delay before retry for rate limit/timeout buffers
+      if (attempt <= maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Fetch/Network Exception on attempt ${attempt} for ${recipientEmail}:`, error);
+      if (attempt <= maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+      }
     }
-
-    console.log(`✅ Email sent to ${recipientEmail}`);
-    return true;
-  } catch (error) {
-    console.error("❌ Error sending email via Resend:", error);
-    return false;
   }
+
+  console.error(`🚨 Final Failure: Exhausted all retries. Could not send email to ${recipientEmail}. Last Error: ${lastError}`);
+  return false;
 }
 
 // Generate HTML for birthday email
@@ -172,9 +203,19 @@ async function processBirthdayReminders() {
 
     console.log(`📅 Found ${birthdays.length} birthdays to check`);
 
-    const todayISO = getTodayISO();
-    const todayMonthDay = getMonthDay(todayISO);
+    // PERF FIX: Fetch user mapping ONCE outside the loop to fix N+1 query issue
+    const { data: authUsers, error: authError } = await supabaseClient.auth.admin.listUsers();
+    if (authError || !authUsers) {
+      console.error("❌ Error fetching auth users:", authError);
+      return;
+    }
 
+    const userEmailMap = new Map<string, string>();
+    authUsers.users.forEach((u: any) => {
+      if (u.email) userEmailMap.set(u.id, u.email);
+    });
+
+    const todayISO = getTodayISO();
     let emailsSent = 0;
     const updateQueue: Array<{
       id: string;
@@ -182,86 +223,59 @@ async function processBirthdayReminders() {
       reminder_sent?: boolean;
     }> = [];
 
+    // Collect batch tasks to prevent rate-limiting Resend API
+    const emailTasks: Array<() => Promise<void>> = [];
+
     // Process each birthday
     for (const birthday of birthdays as Birthday[]) {
       try {
-        // Fetch user email
-        const { data: authUsers, error: authError } = await supabaseClient.auth.admin.listUsers();
-
-        if (authError || !authUsers) {
-          console.warn(
-            `⚠️ Could not fetch user for birthday ${birthday.id}`
-          );
+        const userEmail = userEmailMap.get(birthday.user_id);
+        if (!userEmail) {
+          console.warn(`⚠️ No email found for user ${birthday.user_id}, skipping birthday ${birthday.id}`);
           continue;
         }
 
-        const user = authUsers.users.find((u) => u.id === birthday.user_id);
-        if (!user || !user.email) {
-          console.warn(
-            `⚠️ No email found for user ${birthday.user_id}, skipping birthday ${birthday.id}`
-          );
-          continue;
-        }
-
-        // Check if birthday occurs today (month-day match only)
-        const birthdayMonthDay = getMonthDay(birthday.date_of_birth);
-        if (birthdayMonthDay === todayMonthDay && !birthday.birthday_email_sent) {
+        // Check if birthday occurs today (leap-year safe)
+        if (checkIsEventToday(birthday.date_of_birth, todayISO) && !birthday.birthday_email_sent) {
           console.log(`🎂 Birthday today: ${birthday.name}`);
+          
+          emailTasks.push(async () => {
+            const htmlContent = generateBirthdayEmailHTML(birthday.name);
+            const emailSent = await sendEmailViaResend(userEmail, "🎉 Birthday Reminder", htmlContent);
+            if (emailSent) {
+              emailsSent++;
+              updateQueue.push({ id: birthday.id, birthday_email_sent: true });
+            }
+          });
+        }
 
-          // Send birthday email
-          const htmlContent = generateBirthdayEmailHTML(birthday.name);
-          const emailSent = await sendEmailViaResend(
-            user.email,
-            "🎉 Birthday Reminder",
-            htmlContent
-          );
-
-          if (emailSent) {
-            emailsSent++;
-            updateQueue.push({
-              id: birthday.id,
-              birthday_email_sent: true,
+        // Check if custom reminder occurs today (leap-year safe)
+        if (birthday.reminder_datetime && !birthday.reminder_sent) {
+          if (checkIsEventToday(birthday.reminder_datetime, todayISO)) {
+            console.log(`🔔 Custom reminder today: ${birthday.name}`);
+            
+            emailTasks.push(async () => {
+              const htmlContent = generateReminderEmailHTML(birthday.name, birthday.reminder_datetime!);
+              const emailSent = await sendEmailViaResend(userEmail, "🔔 Upcoming Birthday Reminder", htmlContent);
+              if (emailSent) {
+                emailsSent++;
+                updateQueue.push({ id: birthday.id, reminder_sent: true });
+              }
             });
           }
         }
-
-        // Check if custom reminder occurs today
-        if (
-          birthday.reminder_datetime &&
-          !birthday.reminder_sent
-        ) {
-          const reminderMonthDay = getMonthDay(birthday.reminder_datetime);
-          if (reminderMonthDay === todayMonthDay) {
-            console.log(
-              `🔔 Custom reminder today: ${birthday.name}`
-            );
-
-            // Send reminder email
-            const htmlContent = generateReminderEmailHTML(
-              birthday.name,
-              birthday.reminder_datetime
-            );
-            const emailSent = await sendEmailViaResend(
-              user.email,
-              "🔔 Upcoming Birthday Reminder",
-              htmlContent
-            );
-
-            if (emailSent) {
-              emailsSent++;
-              updateQueue.push({
-                id: birthday.id,
-                reminder_sent: true,
-              });
-            }
-          }
-        }
       } catch (error) {
-        console.error(
-          `❌ Error processing birthday ${birthday.id}:`,
-          error
-        );
-        // Continue processing other birthdays
+        console.error(`❌ Error processing birthday ${birthday.id}:`, error);
+      }
+    }
+
+    // Process email tasks in throttled batches
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < emailTasks.length; i += BATCH_SIZE) {
+      const batch = emailTasks.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map((task) => task()));
+      if (i + BATCH_SIZE < emailTasks.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Throttling protection
       }
     }
 
@@ -276,24 +290,19 @@ async function processBirthdayReminders() {
           .eq("id", update.id);
 
         if (updateError) {
-          console.error(
-            `❌ Error updating birthday ${update.id}:`,
-            updateError
-          );
+          console.error(`❌ Error updating birthday ${update.id}:`, updateError);
         }
       }
     }
 
-    console.log(
-      `✅ Birthday reminder job complete. ${emailsSent} email(s) sent.`
-    );
+    console.log(`✅ Birthday reminder job complete. ${emailsSent} email(s) sent.`);
   } catch (error) {
     console.error("❌ Fatal error in birthday reminder job:", error);
   }
 }
 
 // Serve HTTP endpoint for manual triggering (for testing)
-serve(async (req) => {
+serve(async (req: any) => {
   // Verify request comes from Supabase scheduler
   const authHeader = req.headers.get("authorization");
   const expectedToken = Deno.env.get("SUPABASE_CRON_TOKEN") || "";

@@ -6,11 +6,19 @@ const SUPABASE_URL = 'https://qpvgiygdvxsuzobpwxbh.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwdmdpeWdkdnhzdXpvYnB3eGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0NjYyMjEsImV4cCI6MjA4NjA0MjIyMX0.4mTfL_Ucb0PhWPZnlRo7hCNC_w8a04w35G_zF1b8gqU';
 
 // Get proper redirect URL for OAuth
-// file:// protocol doesn't work with OAuth, so default to localhost in dev
+// Makes local development and production more robust
 function getOAuthRedirectUrl() {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
     if (window.location.protocol === 'file:') {
+        // Fallback to a common local static dev server default explicitly
         return 'http://localhost:8000';
+    } else if (isLocal) {
+        // Local web servers (Vite, LiveServer, etc.) use their own origin securely
+        return window.location.origin;
     }
+    
+    // In production, fallback configured domain safely
     return window.location.origin;
 }
 

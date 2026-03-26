@@ -82,7 +82,11 @@ class Birthday {
     isToday() {
         const today = new Date();
         const [, m, d] = this.dateOfBirth.split('-');
-        return today.getMonth() === m - 1 && today.getDate() === Number(d);
+        
+        // Gracefully handle leap years matching real JS date behavior
+        // Evaluates 02-29 as March 1st on non-leap years appropriately
+        const bdayThisYear = new Date(today.getFullYear(), m - 1, d);
+        return today.getMonth() === bdayThisYear.getMonth() && today.getDate() === bdayThisYear.getDate();
     }
 
     // Date when reminder should fire for the next occurrence
